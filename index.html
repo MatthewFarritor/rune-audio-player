@@ -140,9 +140,8 @@
 <script>
   // List of audio files
   const audioFiles = [
-    'audio1.mp3',
-    'audio2.mp3',
-    'audio3.mp3'
+    'Beethoven Sonata in E minor Op 90, first movement, bars 37-45.wav',
+    
   ];
 
   const playBtn = document.getElementById('playBtn');
@@ -159,7 +158,7 @@
 
   // Update the currently playing track info
   function updateTrackInfo(fileName) {
-    currentTrack.textContent = `Now Playing: ${fileName}`;
+    currentTrack.textContent = `${fileName}`;
   }
 
   // Show playing indicator when audio is actually playing
