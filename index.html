@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>RuneScape-Style Audio Player</title>
+<title>test</title>
 <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
 <style>
   body {
@@ -53,7 +53,6 @@
     position: relative;
   }
 
-  /* The playing indicator: a small dot that blinks when audio is playing */
   .playing-indicator {
     display: inline-block;
     margin-left: 10px;
@@ -134,45 +133,64 @@
 
 <h1>Random Wikipedia Audio</h1>
 <div id="currentTrack">No track selected</div>
-<button id="playBtn">Play</button>
+<button id="playBtn">Play Random Tune</button>
 <audio id="audioPlayer" controls></audio>
 
 <script>
-  // List of audio files
+  // List of audio files in the 'audio' folder
   const audioFiles = [
-    'Beethoven Sonata in E minor Op 90, first movement, bars 37-45.wav',
-    
+    'Beethoven Sonata in E minor Op 90, first movement, bars 37-45.wav'
+
   ];
 
   const playBtn = document.getElementById('playBtn');
   const audioPlayer = document.getElementById('audioPlayer');
   const currentTrack = document.getElementById('currentTrack');
 
+  let currentFile = null;
+  let isPlaying = false;
+
   playBtn.addEventListener('click', () => {
-    const randomIndex = Math.floor(Math.random() * audioFiles.length);
-    const chosenFile = audioFiles[randomIndex];
-    audioPlayer.src = chosenFile;
-    audioPlayer.play();
-    updateTrackInfo(chosenFile);
+    if (!isPlaying) {
+      // If not playing, either choose a new track (if none chosen) or resume current track
+      if (!currentFile) {
+        const randomIndex = Math.floor(Math.random() * audioFiles.length);
+        currentFile = audioFiles[randomIndex];
+        audioPlayer.src = currentFile;
+      }
+      audioPlayer.play();
+      updateTrackInfo(currentFile);
+      playBtn.textContent = "Pause";
+    } else {
+      // If currently playing, pause the audio
+      audioPlayer.pause();
+      playBtn.textContent = "Play";
+    }
   });
 
-  // Update the currently playing track info
-  function updateTrackInfo(fileName) {
-    currentTrack.textContent = `${fileName}`;
-  }
-
-  // Show playing indicator when audio is actually playing
   audioPlayer.addEventListener('play', () => {
+    isPlaying = true;
     addPlayingIndicator();
   });
 
   audioPlayer.addEventListener('pause', () => {
+    isPlaying = false;
     removePlayingIndicator();
+    // We keep the track info displayed so user knows what is paused.
   });
 
   audioPlayer.addEventListener('ended', () => {
+    isPlaying = false;
+    currentFile = null; // reset
     removePlayingIndicator();
+    currentTrack.textContent = "No track selected";
+    playBtn.textContent = "Play Random Tune";
   });
+
+  function updateTrackInfo(fileName) {
+    const displayName = fileName.split('/').pop();
+    currentTrack.textContent = `Now Playing: ${displayName}`;
+  }
 
   function addPlayingIndicator() {
     if (!document.querySelector('.playing-indicator')) {
