@@ -145,7 +145,6 @@
 <audio id="audioPlayer" controls></audio>
 
 <script>
-  const progressionKey = "'50s progression";
   let audioUrls = [];
   let currentFile = null;
   let isPlaying = false;
@@ -155,7 +154,7 @@
   const audioPlayer = document.getElementById('audioPlayer');
   const currentTrack = document.getElementById('currentTrack');
 
-  // Fetch the all_audio_data.json on page load
+  // Fetch the JSON and gather all audio URLs from all keys
   fetch('all_audio_data.json')
     .then(response => {
       if (!response.ok) {
@@ -164,10 +163,16 @@
       return response.json();
     })
     .then(data => {
-      if (!data[progressionKey] || data[progressionKey].length === 0) {
-        throw new Error(`No audio data found for key: ${progressionKey}`);
+      // Flatten all arrays from all keys into one big array
+      Object.values(data).forEach(arr => {
+        if (Array.isArray(arr)) {
+          audioUrls = audioUrls.concat(arr);
+        }
+      });
+
+      if (audioUrls.length === 0) {
+        throw new Error("No audio files found in any category.");
       }
-      audioUrls = data[progressionKey];
     })
     .catch(error => {
       currentTrack.textContent = `Error: ${error.message}`;
@@ -175,7 +180,7 @@
     });
 
   playBtn.addEventListener('click', () => {
-    if (!audioUrls || audioUrls.length === 0) {
+    if (audioUrls.length === 0) {
       currentTrack.textContent = "Audio data not loaded yet";
       return;
     }
@@ -195,7 +200,7 @@
   });
 
   skipBtn.addEventListener('click', () => {
-    if (!audioUrls || audioUrls.length === 0) {
+    if (audioUrls.length === 0) {
       currentTrack.textContent = "Audio data not loaded yet";
       return;
     }
@@ -213,7 +218,7 @@
   });
 
   audioPlayer.addEventListener('ended', () => {
-    // Auto-play next random track without stopping unless manually paused
+    // Auto-play next random track
     pickRandomTrackAndPlay();
   });
 
