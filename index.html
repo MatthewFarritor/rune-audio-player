@@ -17,6 +17,7 @@
     justify-content: center;
     align-items: center;
     background: radial-gradient(circle, #f4ead5 0%, #e8dcc0 100%);
+    text-align: center;
   }
 
   h1 {
@@ -49,8 +50,9 @@
     width: auto;
     border-radius: 5px;
     box-shadow: 2px 2px #d3b992;
-    max-width: 80%;
-    position: relative;
+    max-width: 90%;
+    margin: 0 auto 40px auto;
+    box-sizing: border-box;
   }
 
   .playing-indicator {
@@ -73,6 +75,9 @@
   .controls {
     display: flex;
     gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 20px;
   }
 
   .btn {
@@ -115,7 +120,8 @@
   }
 
   #audioPlayer {
-    display: none;
+    margin: 0 auto;
+    max-width: 90%;
   }
 
   @media(max-width: 600px) {
@@ -125,6 +131,7 @@
 
     #currentTrack {
       font-size: 1.1em;
+      margin-bottom: 30px;
     }
 
     .btn {
@@ -142,7 +149,7 @@
   <button id="playBtn" class="btn">Play</button>
   <button id="skipBtn" class="btn">Skip</button>
 </div>
-<audio id="audioPlayer" controls></audio>
+<audio id="audioPlayer" controls playsinline></audio>
 
 <script>
   let audioUrls = [];
