@@ -70,7 +70,12 @@
     100% { opacity: 1; }
   }
 
-  #playBtn {
+  .controls {
+    display: flex;
+    gap: 20px;
+  }
+
+  .btn {
     background: #624a2e;
     color: #ece0c8;
     font-size: 1.3em;
@@ -85,7 +90,7 @@
     text-shadow: 1px 1px #3c2d1d;
   }
 
-  #playBtn::before, #playBtn::after {
+  .btn::before, .btn::after {
     content: '';
     position: absolute;
     width: 8px;
@@ -94,17 +99,17 @@
     border-radius: 50%;
   }
 
-  #playBtn::before {
+  .btn::before {
     top: 5px;
     left: 5px;
   }
 
-  #playBtn::after {
+  .btn::after {
     bottom: 5px;
     right: 5px;
   }
 
-  #playBtn:hover {
+  .btn:hover {
     transform: scale(1.05);
     box-shadow: 0 0 10px rgba(60,45,29,0.3);
   }
@@ -122,7 +127,7 @@
       font-size: 1.1em;
     }
 
-    #playBtn {
+    .btn {
       font-size: 1.1em;
       padding: 10px 20px;
     }
@@ -133,16 +138,20 @@
 
 <h1>Random Wikipedia Audio</h1>
 <div id="currentTrack">No track selected</div>
-<button id="playBtn">Play</button>
+<div class="controls">
+  <button id="playBtn" class="btn">Play</button>
+  <button id="skipBtn" class="btn">Skip</button>
+</div>
 <audio id="audioPlayer" controls></audio>
 
 <script>
   const progressionKey = "'50s progression";
-  let audioUrls = []; // Will store the array of audio URLs from JSON
+  let audioUrls = [];
   let currentFile = null;
   let isPlaying = false;
 
   const playBtn = document.getElementById('playBtn');
+  const skipBtn = document.getElementById('skipBtn');
   const audioPlayer = document.getElementById('audioPlayer');
   const currentTrack = document.getElementById('currentTrack');
 
@@ -167,26 +176,30 @@
 
   playBtn.addEventListener('click', () => {
     if (!audioUrls || audioUrls.length === 0) {
-      // If audioUrls not loaded yet, do nothing or show error
       currentTrack.textContent = "Audio data not loaded yet";
       return;
     }
 
     if (!isPlaying) {
-      // If not playing, either choose a new track (if none chosen) or resume current track
       if (!currentFile) {
-        const randomIndex = Math.floor(Math.random() * audioUrls.length);
-        currentFile = audioUrls[randomIndex];
-        audioPlayer.src = currentFile;
+        pickRandomTrackAndPlay();
+      } else {
+        audioPlayer.play();
+        updateTrackInfo(currentFile);
+        playBtn.textContent = "Pause";
       }
-      audioPlayer.play();
-      updateTrackInfo(currentFile);
-      playBtn.textContent = "Pause";
     } else {
-      // If currently playing, pause the audio
       audioPlayer.pause();
       playBtn.textContent = "Play";
     }
+  });
+
+  skipBtn.addEventListener('click', () => {
+    if (!audioUrls || audioUrls.length === 0) {
+      currentTrack.textContent = "Audio data not loaded yet";
+      return;
+    }
+    pickRandomTrackAndPlay();
   });
 
   audioPlayer.addEventListener('play', () => {
@@ -200,15 +213,20 @@
   });
 
   audioPlayer.addEventListener('ended', () => {
-    isPlaying = false;
-    currentFile = null; // reset
-    removePlayingIndicator();
-    currentTrack.textContent = "No track selected";
-    playBtn.textContent = "Play";
+    // Auto-play next random track without stopping unless manually paused
+    pickRandomTrackAndPlay();
   });
 
+  function pickRandomTrackAndPlay() {
+    const randomIndex = Math.floor(Math.random() * audioUrls.length);
+    currentFile = audioUrls[randomIndex];
+    audioPlayer.src = currentFile;
+    audioPlayer.play();
+    updateTrackInfo(currentFile);
+    playBtn.textContent = "Pause";
+  }
+
   function updateTrackInfo(fileName) {
-    // Extract the filename from a URL
     const displayName = fileName.split('/').pop();
     currentTrack.textContent = `Now Playing: ${displayName}`;
   }
@@ -231,4 +249,3 @@
 
 </body>
 </html>
-
