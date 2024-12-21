@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Random Wikipedia Audio</title>
 <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
+
 <style>
+  /* --- PAGE STYLES --- */
   body {
     margin: 0;
     padding: 0;
@@ -25,11 +27,9 @@
     margin-bottom: 20px;
     font-weight: normal;
     color: #3c2d1d;
-    text-align: center;
     text-shadow: 1px 1px #d3b992;
     position: relative;
   }
-
   h1::after {
     content: '';
     display: block;
@@ -39,22 +39,25 @@
     margin: 10px auto 0 auto;
   }
 
+  /* --- TRACK INFO BOX --- */
   #currentTrack {
     font-size: 1.3em;
-    margin-bottom: 40px;
-    text-align: center;
+    margin-bottom: 30px;
     color: #3c2d1d;
     padding: 10px 20px;
     background: #e8dcc0;
     border: 2px solid #3c2d1d;
-    width: auto;
     border-radius: 5px;
     box-shadow: 2px 2px #d3b992;
     max-width: 90%;
-    margin: 0 auto 40px auto;
     box-sizing: border-box;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    margin: 0 auto 30px auto;
   }
 
+  /* --- BLINKING DOT INDICATOR --- */
   .playing-indicator {
     display: inline-block;
     margin-left: 10px;
@@ -65,21 +68,22 @@
     animation: blink 1s infinite;
     vertical-align: middle;
   }
-
   @keyframes blink {
     0%   { opacity: 1; }
     50%  { opacity: 0; }
     100% { opacity: 1; }
   }
 
+  /* --- CONTROLS WRAPPER --- */
   .controls {
     display: flex;
     gap: 20px;
     flex-wrap: wrap;
     justify-content: center;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
   }
 
+  /* --- BUTTON STYLES --- */
   .btn {
     background: #624a2e;
     color: #ece0c8;
@@ -94,7 +98,6 @@
     position: relative;
     text-shadow: 1px 1px #3c2d1d;
   }
-
   .btn::before, .btn::after {
     content: '';
     position: absolute;
@@ -103,37 +106,36 @@
     background: #3c2d1d;
     border-radius: 50%;
   }
-
   .btn::before {
     top: 5px;
     left: 5px;
   }
-
   .btn::after {
     bottom: 5px;
     right: 5px;
   }
-
   .btn:hover {
     transform: scale(1.05);
     box-shadow: 0 0 10px rgba(60,45,29,0.3);
   }
 
+  /* --- AUDIO ELEMENT (SHOW CONTROLS) --- */
   #audioPlayer {
+    width: 90%;
+    max-width: 600px;
     margin: 0 auto;
-    max-width: 90%;
   }
 
+  /* --- RESPONSIVE ADJUSTMENTS FOR SMALL SCREENS --- */
   @media(max-width: 600px) {
     h1 {
       font-size: 2em;
+      margin-bottom: 15px;
     }
-
     #currentTrack {
       font-size: 1.1em;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
     }
-
     .btn {
       font-size: 1.1em;
       padding: 10px 20px;
@@ -141,18 +143,23 @@
   }
 </style>
 </head>
+
 <body>
 
 <h1>Random Wikipedia Audio</h1>
+
 <div id="currentTrack">No track selected</div>
+
 <div class="controls">
   <button id="playBtn" class="btn">Play</button>
   <button id="skipBtn" class="btn">Skip</button>
 </div>
+
+<!-- Visible audio controls for a consistent experience on desktop & mobile -->
 <audio id="audioPlayer" controls playsinline></audio>
 
 <script>
-  let audioUrls = [];
+  let audioUrls = [];   // Will hold all audio URLs from all keys in the JSON
   let currentFile = null;
   let isPlaying = false;
 
@@ -161,7 +168,7 @@
   const audioPlayer = document.getElementById('audioPlayer');
   const currentTrack = document.getElementById('currentTrack');
 
-  // Fetch the JSON and gather all audio URLs from all keys
+  // Load the JSON and gather all audio URLs from all keys
   fetch('all_audio_data.json')
     .then(response => {
       if (!response.ok) {
@@ -170,13 +177,12 @@
       return response.json();
     })
     .then(data => {
-      // Flatten all arrays from all keys into one big array
+      // Flatten all arrays from all keys into one array
       Object.values(data).forEach(arr => {
         if (Array.isArray(arr)) {
           audioUrls = audioUrls.concat(arr);
         }
       });
-
       if (audioUrls.length === 0) {
         throw new Error("No audio files found in any category.");
       }
@@ -186,13 +192,15 @@
       console.error('Error loading audio data:', error);
     });
 
+  // Handle Play/Pause
   playBtn.addEventListener('click', () => {
     if (audioUrls.length === 0) {
-      currentTrack.textContent = "Audio data not loaded yet";
+      currentTrack.textContent = "Audio data not loaded yet.";
       return;
     }
 
     if (!isPlaying) {
+      // If not playing yet
       if (!currentFile) {
         pickRandomTrackAndPlay();
       } else {
@@ -201,19 +209,22 @@
         playBtn.textContent = "Pause";
       }
     } else {
+      // If currently playing, pause
       audioPlayer.pause();
       playBtn.textContent = "Play";
     }
   });
 
+  // Handle Skip
   skipBtn.addEventListener('click', () => {
     if (audioUrls.length === 0) {
-      currentTrack.textContent = "Audio data not loaded yet";
+      currentTrack.textContent = "Audio data not loaded yet.";
       return;
     }
     pickRandomTrackAndPlay();
   });
 
+  // Audio Event Listeners
   audioPlayer.addEventListener('play', () => {
     isPlaying = true;
     addPlayingIndicator();
@@ -225,24 +236,33 @@
   });
 
   audioPlayer.addEventListener('ended', () => {
-    // Auto-play next random track
+    // Automatically pick next random track
     pickRandomTrackAndPlay();
   });
 
+  // Picks a random track & plays it
   function pickRandomTrackAndPlay() {
     const randomIndex = Math.floor(Math.random() * audioUrls.length);
     currentFile = audioUrls[randomIndex];
     audioPlayer.src = currentFile;
-    audioPlayer.play();
-    updateTrackInfo(currentFile);
-    playBtn.textContent = "Pause";
+    audioPlayer.play()
+      .then(() => {
+        updateTrackInfo(currentFile);
+        playBtn.textContent = "Pause";
+      })
+      .catch(err => {
+        console.error("Playback error:", err);
+        currentTrack.textContent = `Playback error: ${err.message}`;
+      });
   }
 
+  // Update the text box with the track name
   function updateTrackInfo(fileName) {
     const displayName = fileName.split('/').pop();
     currentTrack.textContent = `Now Playing: ${displayName}`;
   }
 
+  // Show blinking dot
   function addPlayingIndicator() {
     if (!document.querySelector('.playing-indicator')) {
       const indicator = document.createElement('span');
@@ -251,6 +271,7 @@
     }
   }
 
+  // Remove blinking dot
   function removePlayingIndicator() {
     const indicator = document.querySelector('.playing-indicator');
     if (indicator) {
@@ -261,3 +282,4 @@
 
 </body>
 </html>
+
