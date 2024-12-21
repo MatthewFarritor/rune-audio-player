@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>test</title>
+<title>Random Wikipedia Audio</title>
 <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
 <style>
   body {
@@ -137,25 +137,46 @@
 <audio id="audioPlayer" controls></audio>
 
 <script>
-  // List of audio files in the 'audio' folder
-  const audioFiles = [
-    'Beethoven Sonata in E minor Op 90, first movement, bars 37-45.wav'
-
-  ];
+  const progressionKey = "'50s progression";
+  let audioUrls = []; // Will store the array of audio URLs from JSON
+  let currentFile = null;
+  let isPlaying = false;
 
   const playBtn = document.getElementById('playBtn');
   const audioPlayer = document.getElementById('audioPlayer');
   const currentTrack = document.getElementById('currentTrack');
 
-  let currentFile = null;
-  let isPlaying = false;
+  // Fetch the all_audio_data.json on page load
+  fetch('all_audio_data.json')
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Failed to load JSON: ${response.statusText}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (!data[progressionKey] || data[progressionKey].length === 0) {
+        throw new Error(`No audio data found for key: ${progressionKey}`);
+      }
+      audioUrls = data[progressionKey];
+    })
+    .catch(error => {
+      currentTrack.textContent = `Error: ${error.message}`;
+      console.error('Error loading audio data:', error);
+    });
 
   playBtn.addEventListener('click', () => {
+    if (!audioUrls || audioUrls.length === 0) {
+      // If audioUrls not loaded yet, do nothing or show error
+      currentTrack.textContent = "Audio data not loaded yet";
+      return;
+    }
+
     if (!isPlaying) {
       // If not playing, either choose a new track (if none chosen) or resume current track
       if (!currentFile) {
-        const randomIndex = Math.floor(Math.random() * audioFiles.length);
-        currentFile = audioFiles[randomIndex];
+        const randomIndex = Math.floor(Math.random() * audioUrls.length);
+        currentFile = audioUrls[randomIndex];
         audioPlayer.src = currentFile;
       }
       audioPlayer.play();
@@ -176,7 +197,6 @@
   audioPlayer.addEventListener('pause', () => {
     isPlaying = false;
     removePlayingIndicator();
-    // We keep the track info displayed so user knows what is paused.
   });
 
   audioPlayer.addEventListener('ended', () => {
@@ -184,10 +204,11 @@
     currentFile = null; // reset
     removePlayingIndicator();
     currentTrack.textContent = "No track selected";
-    playBtn.textContent = "Play Random Tune";
+    playBtn.textContent = "Play";
   });
 
   function updateTrackInfo(fileName) {
+    // Extract the filename from a URL
     const displayName = fileName.split('/').pop();
     currentTrack.textContent = `Now Playing: ${displayName}`;
   }
@@ -210,3 +231,4 @@
 
 </body>
 </html>
+
