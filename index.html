@@ -112,6 +112,56 @@
     width: 90%;
     max-width: 600px;
     margin: 0 auto;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+  }
+
+  /* Audio Player Custom Styling */
+  #audioPlayer::-webkit-media-controls-panel {
+    background: #e8dcc0;
+    border: 2px solid #3c2d1d;
+    border-radius: 8px;
+  }
+
+  #audioPlayer::-webkit-media-controls-play-button {
+    background-color: #624a2e;
+    border-radius: 50%;
+    color: #ece0c8;
+  }
+
+  #audioPlayer::-webkit-media-controls-current-time-display,
+  #audioPlayer::-webkit-media-controls-time-remaining-display {
+    color: #3c2d1d;
+    font-family: 'MedievalSharp', cursive;
+  }
+
+  #audioPlayer::-webkit-media-controls-timeline {
+    background-color: #d3b992;
+    border-radius: 4px;
+    margin: 0 15px;
+  }
+
+  #audioPlayer::-webkit-media-controls-volume-slider {
+    background-color: #d3b992;
+    border-radius: 4px;
+    padding: 0 5px;
+  }
+
+  #audioPlayer::-webkit-media-controls-mute-button {
+    background-color: #624a2e;
+    border-radius: 50%;
+  }
+
+  /* Firefox specific styles */
+  #audioPlayer::-moz-range-track {
+    background-color: #d3b992;
+  }
+
+  #audioPlayer::-moz-range-thumb {
+    background-color: #624a2e;
+    border: none;
+    border-radius: 50%;
   }
 
   @media(max-width: 600px) {
@@ -149,7 +199,7 @@
   <button id="skipBtn" class="btn">Skip</button>
 </div>
 
-<audio id="audioPlayer" controls playsinline preload="auto"></audio>
+<audio id="audioPlayer" playsinline preload="auto" style="display: none;"></audio>
 
 <script>
   let audioUrls = [];
