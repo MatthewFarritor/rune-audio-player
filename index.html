@@ -2,17 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>Random Wikipedia Audio</title>
 <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
 
 <style>
-  /* --- PAGE STYLES --- */
   body {
     margin: 0;
-    padding: 0;
+    padding: 20px;
     font-family: 'MedievalSharp', cursive;
-    height: 100vh;
+    min-height: 100vh;
     color: #3c2d1d;
     display: flex;
     flex-direction: column;
@@ -20,16 +19,21 @@
     align-items: center;
     background: radial-gradient(circle, #f4ead5 0%, #e8dcc0 100%);
     text-align: center;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
   }
 
   h1 {
     font-size: 2.5em;
-    margin-bottom: 20px;
+    margin: 0 0 20px 0;
     font-weight: normal;
     color: #3c2d1d;
     text-shadow: 1px 1px #d3b992;
     position: relative;
+    padding: 0 10px;
+    word-wrap: break-word;
   }
+  
   h1::after {
     content: '';
     display: block;
@@ -39,230 +43,246 @@
     margin: 10px auto 0 auto;
   }
 
-  /* --- TRACK INFO BOX --- */
   #currentTrack {
     font-size: 1.3em;
-    margin-bottom: 30px;
+    margin: 0 auto 30px auto;
     color: #3c2d1d;
-    padding: 10px 20px;
+    padding: 15px;
     background: #e8dcc0;
     border: 2px solid #3c2d1d;
     border-radius: 5px;
     box-shadow: 2px 2px #d3b992;
-    max-width: 90%;
+    width: 90%;
+    max-width: 600px;
     box-sizing: border-box;
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: normal;
-    margin: 0 auto 30px auto;
   }
 
-  /* --- BLINKING DOT INDICATOR --- */
   .playing-indicator {
     display: inline-block;
     margin-left: 10px;
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     background: #3c2d1d;
     border-radius: 50%;
     animation: blink 1s infinite;
     vertical-align: middle;
   }
+  
   @keyframes blink {
     0%   { opacity: 1; }
     50%  { opacity: 0; }
     100% { opacity: 1; }
   }
 
-  /* --- CONTROLS WRAPPER --- */
   .controls {
     display: flex;
-    gap: 20px;
+    gap: 15px;
     flex-wrap: wrap;
     justify-content: center;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
+    padding: 0 10px;
   }
 
-  /* --- BUTTON STYLES --- */
   .btn {
     background: #624a2e;
     color: #ece0c8;
-    font-size: 1.3em;
-    padding: 15px 30px;
+    font-size: 1.2em;
+    padding: 12px 25px;
     border: 3px solid #3c2d1d;
     border-radius: 8px;
     cursor: pointer;
     letter-spacing: 1px;
     text-transform: uppercase;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.1s ease;
     position: relative;
     text-shadow: 1px 1px #3c2d1d;
-  }
-  .btn::before, .btn::after {
-    content: '';
-    position: absolute;
-    width: 8px;
-    height: 8px;
-    background: #3c2d1d;
-    border-radius: 50%;
-  }
-  .btn::before {
-    top: 5px;
-    left: 5px;
-  }
-  .btn::after {
-    bottom: 5px;
-    right: 5px;
-  }
-  .btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 10px rgba(60,45,29,0.3);
+    font-family: 'MedievalSharp', cursive;
+    min-width: 120px;
+    touch-action: manipulation;
   }
 
-  /* --- AUDIO ELEMENT (SHOW CONTROLS) --- */
+  .btn:active {
+    transform: scale(0.95);
+  }
+
   #audioPlayer {
     width: 90%;
     max-width: 600px;
     margin: 0 auto;
   }
 
-  /* --- RESPONSIVE ADJUSTMENTS FOR SMALL SCREENS --- */
   @media(max-width: 600px) {
+    body {
+      padding: 15px;
+    }
+    
     h1 {
       font-size: 2em;
       margin-bottom: 15px;
     }
+    
     #currentTrack {
       font-size: 1.1em;
       margin-bottom: 20px;
+      padding: 12px;
     }
+    
     .btn {
       font-size: 1.1em;
       padding: 10px 20px;
+      min-width: 100px;
     }
   }
 </style>
 </head>
 
 <body>
-
 <h1>Random Wikipedia Audio</h1>
 
-<div id="currentTrack">No track selected</div>
+<div id="currentTrack">Ready to play</div>
 
 <div class="controls">
   <button id="playBtn" class="btn">Play</button>
   <button id="skipBtn" class="btn">Skip</button>
 </div>
 
-<!-- Visible audio controls for a consistent experience on desktop & mobile -->
-<audio id="audioPlayer" controls playsinline></audio>
+<audio id="audioPlayer" controls playsinline preload="auto"></audio>
 
 <script>
-  let audioUrls = [];   // Will hold all audio URLs from all keys in the JSON
+  let audioUrls = [];
   let currentFile = null;
   let isPlaying = false;
+  let audioContext = null;
+  let isAudioInitialized = false;
 
   const playBtn = document.getElementById('playBtn');
   const skipBtn = document.getElementById('skipBtn');
   const audioPlayer = document.getElementById('audioPlayer');
   const currentTrack = document.getElementById('currentTrack');
 
-  // Load the JSON and gather all audio URLs from all keys
-  fetch('all_audio_data.json')
-    .then(response => {
+  // Initialize audio context on user interaction
+  function initializeAudioContext() {
+    if (!isAudioInitialized) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      isAudioInitialized = true;
+    }
+  }
+
+  // Load audio data
+  async function loadAudioData() {
+    try {
+      const response = await fetch('all_audio_data.json');
       if (!response.ok) {
-        throw new Error(`Failed to load JSON: ${response.statusText}`);
+        throw new Error(`Failed to load audio data: ${response.statusText}`);
       }
-      return response.json();
-    })
-    .then(data => {
-      // Flatten all arrays from all keys into one array
+      const data = await response.json();
+      
       Object.values(data).forEach(arr => {
         if (Array.isArray(arr)) {
           audioUrls = audioUrls.concat(arr);
         }
       });
+      
       if (audioUrls.length === 0) {
-        throw new Error("No audio files found in any category.");
+        throw new Error("No audio files found");
       }
-    })
-    .catch(error => {
-      currentTrack.textContent = `Error: ${error.message}`;
+      
+      currentTrack.textContent = "Ready to play";
+    } catch (error) {
       console.error('Error loading audio data:', error);
-    });
-
-  // Handle Play/Pause
-  playBtn.addEventListener('click', () => {
-    if (audioUrls.length === 0) {
-      currentTrack.textContent = "Audio data not loaded yet.";
-      return;
+      currentTrack.textContent = `Error: ${error.message}`;
     }
-
-    if (!isPlaying) {
-      // If not playing yet
-      if (!currentFile) {
-        pickRandomTrackAndPlay();
-      } else {
-        audioPlayer.play();
-        updateTrackInfo(currentFile);
-        playBtn.textContent = "Pause";
-      }
-    } else {
-      // If currently playing, pause
-      audioPlayer.pause();
-      playBtn.textContent = "Play";
-    }
-  });
-
-  // Handle Skip
-  skipBtn.addEventListener('click', () => {
-    if (audioUrls.length === 0) {
-      currentTrack.textContent = "Audio data not loaded yet.";
-      return;
-    }
-    pickRandomTrackAndPlay();
-  });
-
-  // Audio Event Listeners
-  audioPlayer.addEventListener('play', () => {
-    isPlaying = true;
-    addPlayingIndicator();
-  });
-
-  audioPlayer.addEventListener('pause', () => {
-    isPlaying = false;
-    removePlayingIndicator();
-  });
-
-  audioPlayer.addEventListener('ended', () => {
-    // Automatically pick next random track
-    pickRandomTrackAndPlay();
-  });
-
-  // Picks a random track & plays it
-  function pickRandomTrackAndPlay() {
-    const randomIndex = Math.floor(Math.random() * audioUrls.length);
-    currentFile = audioUrls[randomIndex];
-    audioPlayer.src = currentFile;
-    audioPlayer.play()
-      .then(() => {
-        updateTrackInfo(currentFile);
-        playBtn.textContent = "Pause";
-      })
-      .catch(err => {
-        console.error("Playback error:", err);
-        currentTrack.textContent = `Playback error: ${err.message}`;
-      });
   }
 
-  // Update the text box with the track name
+  // Initialize on page load
+  loadAudioData();
+
+  // Pick and play random track
+  async function pickRandomTrackAndPlay() {
+    if (audioUrls.length === 0) {
+      currentTrack.textContent = "Audio data not loaded yet";
+      return;
+    }
+
+    try {
+      initializeAudioContext();
+      
+      const randomIndex = Math.floor(Math.random() * audioUrls.length);
+      currentFile = audioUrls[randomIndex];
+      
+      // Reset audio element
+      audioPlayer.src = currentFile;
+      
+      // Attempt playback
+      const playPromise = audioPlayer.play();
+      
+      if (playPromise !== undefined) {
+        await playPromise;
+        isPlaying = true;
+        updateTrackInfo(currentFile);
+        playBtn.textContent = "Pause";
+        addPlayingIndicator();
+      }
+    } catch (error) {
+      console.error("Playback error:", error);
+      currentTrack.textContent = "Playback error - please try again";
+      isPlaying = false;
+      playBtn.textContent = "Play";
+      removePlayingIndicator();
+    }
+  }
+
+  // Update track info display
   function updateTrackInfo(fileName) {
     const displayName = fileName.split('/').pop();
     currentTrack.textContent = `Now Playing: ${displayName}`;
   }
 
-  // Show blinking dot
+  // Handle Play/Pause
+  playBtn.addEventListener('click', async () => {
+    try {
+      if (!isPlaying) {
+        if (!currentFile) {
+          await pickRandomTrackAndPlay();
+        } else {
+          await audioPlayer.play();
+          isPlaying = true;
+          updateTrackInfo(currentFile);
+          playBtn.textContent = "Pause";
+          addPlayingIndicator();
+        }
+      } else {
+        audioPlayer.pause();
+        isPlaying = false;
+        playBtn.textContent = "Play";
+        removePlayingIndicator();
+      }
+    } catch (error) {
+      console.error("Playback control error:", error);
+      currentTrack.textContent = "Playback error - please try again";
+    }
+  });
+
+  // Handle Skip
+  skipBtn.addEventListener('click', async () => {
+    await pickRandomTrackAndPlay();
+  });
+
+  // Audio event listeners
+  audioPlayer.addEventListener('ended', () => {
+    pickRandomTrackAndPlay();
+  });
+
+  audioPlayer.addEventListener('error', (e) => {
+    console.error("Audio error:", e);
+    currentTrack.textContent = "Error playing audio - skipping to next track";
+    setTimeout(() => pickRandomTrackAndPlay(), 1000);
+  });
+
+  // Playing indicator functions
   function addPlayingIndicator() {
     if (!document.querySelector('.playing-indicator')) {
       const indicator = document.createElement('span');
@@ -271,15 +291,46 @@
     }
   }
 
-  // Remove blinking dot
   function removePlayingIndicator() {
     const indicator = document.querySelector('.playing-indicator');
     if (indicator) {
       indicator.remove();
     }
   }
+
+  // Handle page visibility changes
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      // Save the playing state when page is hidden
+      window.wasPlaying = !audioPlayer.paused;
+    } else {
+      // Restore playing state when page becomes visible
+      if (window.wasPlaying) {
+        audioPlayer.play().catch(error => {
+          console.error("Resume playback error:", error);
+        });
+      }
+    }
+  });
+
+  // Prevent screen sleep during playback
+  async function preventSleep() {
+    try {
+      if ('wakeLock' in navigator) {
+        const wakeLock = await navigator.wakeLock.request('screen');
+        document.addEventListener('visibilitychange', async () => {
+          if (document.visibilityState === 'visible') {
+            await navigator.wakeLock.request('screen');
+          }
+        });
+      }
+    } catch (err) {
+      console.log('Wake Lock error:', err);
+    }
+  }
+  
+  preventSleep();
 </script>
 
 </body>
 </html>
-
