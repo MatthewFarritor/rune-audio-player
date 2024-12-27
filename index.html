@@ -109,59 +109,7 @@
   }
 
   #audioPlayer {
-    width: 90%;
-    max-width: 600px;
-    margin: 0 auto;
-    -webkit-appearance: none;
-    appearance: none;
-    background: transparent;
-  }
-
-  /* Audio Player Custom Styling */
-  #audioPlayer::-webkit-media-controls-panel {
-    background: #e8dcc0;
-    border: 2px solid #3c2d1d;
-    border-radius: 8px;
-  }
-
-  #audioPlayer::-webkit-media-controls-play-button {
-    background-color: #624a2e;
-    border-radius: 50%;
-    color: #ece0c8;
-  }
-
-  #audioPlayer::-webkit-media-controls-current-time-display,
-  #audioPlayer::-webkit-media-controls-time-remaining-display {
-    color: #3c2d1d;
-    font-family: 'MedievalSharp', cursive;
-  }
-
-  #audioPlayer::-webkit-media-controls-timeline {
-    background-color: #d3b992;
-    border-radius: 4px;
-    margin: 0 15px;
-  }
-
-  #audioPlayer::-webkit-media-controls-volume-slider {
-    background-color: #d3b992;
-    border-radius: 4px;
-    padding: 0 5px;
-  }
-
-  #audioPlayer::-webkit-media-controls-mute-button {
-    background-color: #624a2e;
-    border-radius: 50%;
-  }
-
-  /* Firefox specific styles */
-  #audioPlayer::-moz-range-track {
-    background-color: #d3b992;
-  }
-
-  #audioPlayer::-moz-range-thumb {
-    background-color: #624a2e;
-    border: none;
-    border-radius: 50%;
+    display: none;
   }
 
   @media(max-width: 600px) {
@@ -196,14 +144,14 @@
 
 <div class="controls">
   <button id="playBtn" class="btn">Play</button>
-  <button id="skipBtn" class="btn">Next</button>
+  <button id="skipBtn" class="btn">Skip</button>
 </div>
 
-<audio id="audioPlayer" playsinline preload="auto" style="display: none;"></audio>
+<audio id="audioPlayer" preload="auto"></audio>
 
 <script>
-  let audioUrls = [];
-  let currentFile = null;
+  let audioData = null;
+  let currentKey = null;
   let isPlaying = false;
   let audioContext = null;
   let isAudioInitialized = false;
@@ -213,7 +161,6 @@
   const audioPlayer = document.getElementById('audioPlayer');
   const currentTrack = document.getElementById('currentTrack');
 
-  // Initialize audio context on user interaction
   function initializeAudioContext() {
     if (!isAudioInitialized) {
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -221,25 +168,13 @@
     }
   }
 
-  // Load audio data
   async function loadAudioData() {
     try {
       const response = await fetch('all_audio_data.json');
       if (!response.ok) {
         throw new Error(`Failed to load audio data: ${response.statusText}`);
       }
-      const data = await response.json();
-      
-      Object.values(data).forEach(arr => {
-        if (Array.isArray(arr)) {
-          audioUrls = audioUrls.concat(arr);
-        }
-      });
-      
-      if (audioUrls.length === 0) {
-        throw new Error("No audio files found");
-      }
-      
+      audioData = await response.json();
       currentTrack.textContent = "Ready to play";
     } catch (error) {
       console.error('Error loading audio data:', error);
@@ -247,12 +182,13 @@
     }
   }
 
-  // Initialize on page load
-  loadAudioData();
+  function getRandomKey() {
+    const keys = Object.keys(audioData);
+    return keys[Math.floor(Math.random() * keys.length)];
+  }
 
-  // Pick and play random track
   async function pickRandomTrackAndPlay() {
-    if (audioUrls.length === 0) {
+    if (!audioData) {
       currentTrack.textContent = "Audio data not loaded yet";
       return;
     }
@@ -260,19 +196,17 @@
     try {
       initializeAudioContext();
       
-      const randomIndex = Math.floor(Math.random() * audioUrls.length);
-      currentFile = audioUrls[randomIndex];
+      currentKey = getRandomKey();
+      const url = audioData[currentKey];
       
-      // Reset audio element
-      audioPlayer.src = currentFile;
+      audioPlayer.src = url;
       
-      // Attempt playback
       const playPromise = audioPlayer.play();
       
       if (playPromise !== undefined) {
         await playPromise;
         isPlaying = true;
-        updateTrackInfo(currentFile);
+        updateTrackInfo(currentKey);
         playBtn.textContent = "Pause";
         addPlayingIndicator();
       }
@@ -285,22 +219,19 @@
     }
   }
 
-  // Update track info display
-  function updateTrackInfo(fileName) {
-    const displayName = fileName.split('/').pop();
-    currentTrack.textContent = `Now Playing: ${displayName}`;
+  function updateTrackInfo(title) {
+    currentTrack.textContent = `Now Playing: ${title}`;
   }
 
-  // Handle Play/Pause
   playBtn.addEventListener('click', async () => {
     try {
       if (!isPlaying) {
-        if (!currentFile) {
+        if (!currentKey) {
           await pickRandomTrackAndPlay();
         } else {
           await audioPlayer.play();
           isPlaying = true;
-          updateTrackInfo(currentFile);
+          updateTrackInfo(currentKey);
           playBtn.textContent = "Pause";
           addPlayingIndicator();
         }
@@ -316,12 +247,10 @@
     }
   });
 
-  // Handle Skip
   skipBtn.addEventListener('click', async () => {
     await pickRandomTrackAndPlay();
   });
 
-  // Audio event listeners
   audioPlayer.addEventListener('ended', () => {
     pickRandomTrackAndPlay();
   });
@@ -332,7 +261,6 @@
     setTimeout(() => pickRandomTrackAndPlay(), 1000);
   });
 
-  // Playing indicator functions
   function addPlayingIndicator() {
     if (!document.querySelector('.playing-indicator')) {
       const indicator = document.createElement('span');
@@ -348,13 +276,10 @@
     }
   }
 
-  // Handle page visibility changes
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      // Save the playing state when page is hidden
       window.wasPlaying = !audioPlayer.paused;
     } else {
-      // Restore playing state when page becomes visible
       if (window.wasPlaying) {
         audioPlayer.play().catch(error => {
           console.error("Resume playback error:", error);
@@ -363,7 +288,6 @@
     }
   });
 
-  // Prevent screen sleep during playback
   async function preventSleep() {
     try {
       if ('wakeLock' in navigator) {
@@ -379,6 +303,7 @@
     }
   }
   
+  loadAudioData();
   preventSleep();
 </script>
 
