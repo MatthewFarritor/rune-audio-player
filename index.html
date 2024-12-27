@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>Random Wikipedia Audio</title>
 <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ogv/1.8.9/ogv.js"></script>
 
 <style>
   body {
@@ -150,161 +151,208 @@
 <audio id="audioPlayer" preload="auto"></audio>
 
 <script>
-  let audioData = null;
-  let currentKey = null;
-  let isPlaying = false;
-  let audioContext = null;
-  let isAudioInitialized = false;
+let audioData = null;
+let currentKey = null;
+let isPlaying = false;
+let audioContext = null;
+let isAudioInitialized = false;
+let player = null;
 
-  const playBtn = document.getElementById('playBtn');
-  const skipBtn = document.getElementById('skipBtn');
-  const audioPlayer = document.getElementById('audioPlayer');
-  const currentTrack = document.getElementById('currentTrack');
+const playBtn = document.getElementById('playBtn');
+const skipBtn = document.getElementById('skipBtn');
+const audioPlayer = document.getElementById('audioPlayer');
+const currentTrack = document.getElementById('currentTrack');
 
-  function initializeAudioContext() {
+async function initializeAudio() {
     if (!isAudioInitialized) {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      isAudioInitialized = true;
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        if (!player && /^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
+            player = new OGVPlayer({
+                forceWebGL: true,
+                debug: false
+            });
+            player.style.display = 'none';
+            document.body.appendChild(player);
+        }
+        
+        isAudioInitialized = true;
     }
-  }
+}
 
-  async function loadAudioData() {
+async function loadAudioData() {
     try {
-      const response = await fetch('all_audio_data.json');
-      if (!response.ok) {
-        throw new Error(`Failed to load audio data: ${response.statusText}`);
-      }
-      audioData = await response.json();
-      currentTrack.textContent = "Ready to play";
+        const response = await fetch('all_audio_data.json');
+        if (!response.ok) {
+            throw new Error(`Failed to load audio data: ${response.statusText}`);
+        }
+        audioData = await response.json();
+        currentTrack.textContent = "Ready to play";
     } catch (error) {
-      console.error('Error loading audio data:', error);
-      currentTrack.textContent = `Error: ${error.message}`;
+        console.error('Error loading audio data:', error);
+        currentTrack.textContent = `Error: ${error.message}`;
     }
-  }
+}
 
-  function getRandomKey() {
+function getRandomKey() {
     const keys = Object.keys(audioData);
     return keys[Math.floor(Math.random() * keys.length)];
-  }
+}
 
-  async function pickRandomTrackAndPlay() {
-    if (!audioData) {
-      currentTrack.textContent = "Audio data not loaded yet";
-      return;
-    }
-
+async function playAudio(url) {
     try {
-      initializeAudioContext();
-      
-      currentKey = getRandomKey();
-      const url = audioData[currentKey];
-      
-      audioPlayer.src = url;
-      
-      const playPromise = audioPlayer.play();
-      
-      if (playPromise !== undefined) {
-        await playPromise;
-        isPlaying = true;
-        updateTrackInfo(currentKey);
-        playBtn.textContent = "Pause";
-        addPlayingIndicator();
-      }
-    } catch (error) {
-      console.error("Playback error:", error);
-      currentTrack.textContent = "Playback error - please try again";
-      isPlaying = false;
-      playBtn.textContent = "Play";
-      removePlayingIndicator();
-    }
-  }
-
-  function updateTrackInfo(title) {
-    currentTrack.textContent = `Now Playing: ${title}`;
-  }
-
-  playBtn.addEventListener('click', async () => {
-    try {
-      if (!isPlaying) {
-        if (!currentKey) {
-          await pickRandomTrackAndPlay();
+        if (/\.ogg$/i.test(url) && /^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
+            if (player) {
+                await player.src(url);
+                await player.play();
+                return true;
+            }
         } else {
-          await audioPlayer.play();
-          isPlaying = true;
-          updateTrackInfo(currentKey);
-          playBtn.textContent = "Pause";
-          addPlayingIndicator();
+            audioPlayer.src = url;
+            await audioPlayer.play();
+            return true;
         }
-      } else {
-        audioPlayer.pause();
+    } catch (error) {
+        console.error('Playback error:', error);
+        return false;
+    }
+    return false;
+}
+
+async function pickRandomTrackAndPlay() {
+    if (!audioData) {
+        currentTrack.textContent = "Audio data not loaded yet";
+        return;
+    }
+
+    try {
+        await initializeAudio();
+        currentKey = getRandomKey();
+        const url = audioData[currentKey];
+        
+        const success = await playAudio(url);
+        
+        if (success) {
+            isPlaying = true;
+            updateTrackInfo(currentKey);
+            playBtn.textContent = "Pause";
+            addPlayingIndicator();
+        } else {
+            throw new Error("Failed to play audio");
+        }
+    } catch (error) {
+        console.error("Playback error:", error);
+        currentTrack.textContent = "Playback error - trying next track";
         isPlaying = false;
         playBtn.textContent = "Play";
         removePlayingIndicator();
-      }
-    } catch (error) {
-      console.error("Playback control error:", error);
-      currentTrack.textContent = "Playback error - please try again";
+        setTimeout(() => pickRandomTrackAndPlay(), 1000);
     }
-  });
+}
 
-  skipBtn.addEventListener('click', async () => {
+function updateTrackInfo(title) {
+    currentTrack.textContent = `Now Playing: ${title}`;
+}
+
+function addPlayingIndicator() {
+    if (!document.querySelector('.playing-indicator')) {
+        const indicator = document.createElement('span');
+        indicator.classList.add('playing-indicator');
+        currentTrack.appendChild(indicator);
+    }
+}
+
+function removePlayingIndicator() {
+    const indicator = document.querySelector('.playing-indicator');
+    if (indicator) {
+        indicator.remove();
+    }
+}
+
+playBtn.addEventListener('click', async () => {
+    try {
+        if (!isPlaying) {
+            if (!currentKey) {
+                await pickRandomTrackAndPlay();
+            } else {
+                if (player && player.src) {
+                    await player.play();
+                } else {
+                    await audioPlayer.play();
+                }
+                isPlaying = true;
+                updateTrackInfo(currentKey);
+                playBtn.textContent = "Pause";
+                addPlayingIndicator();
+            }
+        } else {
+            if (player && player.src) {
+                await player.pause();
+            } else {
+                audioPlayer.pause();
+            }
+            isPlaying = false;
+            playBtn.textContent = "Play";
+            removePlayingIndicator();
+        }
+    } catch (error) {
+        console.error("Playback control error:", error);
+        currentTrack.textContent = "Playback error - please try again";
+    }
+});
+
+skipBtn.addEventListener('click', async () => {
     await pickRandomTrackAndPlay();
-  });
+});
 
-  audioPlayer.addEventListener('ended', () => {
+audioPlayer.addEventListener('ended', () => {
     pickRandomTrackAndPlay();
-  });
+});
 
-  audioPlayer.addEventListener('error', (e) => {
+audioPlayer.addEventListener('error', (e) => {
     console.error("Audio error:", e);
     currentTrack.textContent = "Error playing audio - skipping to next track";
     setTimeout(() => pickRandomTrackAndPlay(), 1000);
-  });
+});
 
-  function addPlayingIndicator() {
-    if (!document.querySelector('.playing-indicator')) {
-      const indicator = document.createElement('span');
-      indicator.classList.add('playing-indicator');
-      currentTrack.appendChild(indicator);
-    }
-  }
-
-  function removePlayingIndicator() {
-    const indicator = document.querySelector('.playing-indicator');
-    if (indicator) {
-      indicator.remove();
-    }
-  }
-
-  document.addEventListener('visibilitychange', () => {
+document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      window.wasPlaying = !audioPlayer.paused;
+        window.wasPlaying = isPlaying;
+        if (isPlaying) {
+            if (player && player.src) {
+                player.pause();
+            } else {
+                audioPlayer.pause();
+            }
+        }
     } else {
-      if (window.wasPlaying) {
-        audioPlayer.play().catch(error => {
-          console.error("Resume playback error:", error);
-        });
-      }
+        if (window.wasPlaying) {
+            if (player && player.src) {
+                player.play().catch(console.error);
+            } else {
+                audioPlayer.play().catch(console.error);
+            }
+        }
     }
-  });
+});
 
-  async function preventSleep() {
+async function preventSleep() {
     try {
-      if ('wakeLock' in navigator) {
-        const wakeLock = await navigator.wakeLock.request('screen');
-        document.addEventListener('visibilitychange', async () => {
-          if (document.visibilityState === 'visible') {
-            await navigator.wakeLock.request('screen');
-          }
-        });
-      }
+        if ('wakeLock' in navigator) {
+            const wakeLock = await navigator.wakeLock.request('screen');
+            document.addEventListener('visibilitychange', async () => {
+                if (document.visibilityState === 'visible') {
+                    await navigator.wakeLock.request('screen');
+                }
+            });
+        }
     } catch (err) {
-      console.log('Wake Lock error:', err);
+        console.log('Wake Lock error:', err);
     }
-  }
-  
-  loadAudioData();
-  preventSleep();
+}
+
+loadAudioData();
+preventSleep();
 </script>
 
 </body>
