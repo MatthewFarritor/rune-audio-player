@@ -5,9 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>Random Wikipedia Audio</title>
 <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ogv/1.8.9/ogv.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.4/howler.min.js"></script>
+
 
 <style>
+  
   body {
     margin: 0;
     padding: 20px;
@@ -136,6 +138,7 @@
     }
   }
 </style>
+
 </head>
 
 <body>
@@ -148,37 +151,15 @@
   <button id="skipBtn" class="btn">Skip</button>
 </div>
 
-<audio id="audioPlayer" preload="auto"></audio>
-
 <script>
 let audioData = null;
 let currentKey = null;
 let isPlaying = false;
-let audioContext = null;
-let isAudioInitialized = false;
-let player = null;
+let sound = null;
 
 const playBtn = document.getElementById('playBtn');
 const skipBtn = document.getElementById('skipBtn');
-const audioPlayer = document.getElementById('audioPlayer');
 const currentTrack = document.getElementById('currentTrack');
-
-async function initializeAudio() {
-    if (!isAudioInitialized) {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        if (!player && /^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
-            player = new OGVPlayer({
-                forceWebGL: true,
-                debug: false
-            });
-            player.style.display = 'none';
-            document.body.appendChild(player);
-        }
-        
-        isAudioInitialized = true;
-    }
-}
 
 async function loadAudioData() {
     try {
@@ -199,26 +180,6 @@ function getRandomKey() {
     return keys[Math.floor(Math.random() * keys.length)];
 }
 
-async function playAudio(url) {
-    try {
-        if (/\.ogg$/i.test(url) && /^((?!chrome|android).)*safari/i.test(navigator.userAgent)) {
-            if (player) {
-                await player.src(url);
-                await player.play();
-                return true;
-            }
-        } else {
-            audioPlayer.src = url;
-            await audioPlayer.play();
-            return true;
-        }
-    } catch (error) {
-        console.error('Playback error:', error);
-        return false;
-    }
-    return false;
-}
-
 async function pickRandomTrackAndPlay() {
     if (!audioData) {
         currentTrack.textContent = "Audio data not loaded yet";
@@ -226,26 +187,48 @@ async function pickRandomTrackAndPlay() {
     }
 
     try {
-        await initializeAudio();
+        // Stop current sound if exists
+        if (sound) {
+            sound.unload();
+        }
+
         currentKey = getRandomKey();
         const url = audioData[currentKey];
         
-        const success = await playAudio(url);
-        
-        if (success) {
-            isPlaying = true;
-            updateTrackInfo(currentKey);
-            playBtn.textContent = "Pause";
-            addPlayingIndicator();
-        } else {
-            throw new Error("Failed to play audio");
-        }
+        // Create new Howl instance
+        sound = new Howl({
+            src: [url],
+            html5: true,
+            format: ['ogg', 'wav'],
+            onplay: function() {
+                isPlaying = true;
+                updateTrackInfo(currentKey);
+                playBtn.textContent = "Pause";
+                addPlayingIndicator();
+            },
+            onend: function() {
+                pickRandomTrackAndPlay();
+            },
+            onstop: function() {
+                isPlaying = false;
+                playBtn.textContent = "Play";
+                removePlayingIndicator();
+            },
+            onloaderror: function() {
+                console.error("Load error - trying next track");
+                setTimeout(() => pickRandomTrackAndPlay(), 1000);
+            },
+            onplayerror: function() {
+                console.error("Play error - trying next track");
+                setTimeout(() => pickRandomTrackAndPlay(), 1000);
+            }
+        });
+
+        sound.play();
+
     } catch (error) {
         console.error("Playback error:", error);
         currentTrack.textContent = "Playback error - trying next track";
-        isPlaying = false;
-        playBtn.textContent = "Play";
-        removePlayingIndicator();
         setTimeout(() => pickRandomTrackAndPlay(), 1000);
     }
 }
@@ -272,28 +255,18 @@ function removePlayingIndicator() {
 playBtn.addEventListener('click', async () => {
     try {
         if (!isPlaying) {
-            if (!currentKey) {
+            if (!sound || !currentKey) {
                 await pickRandomTrackAndPlay();
             } else {
-                if (player && player.src) {
-                    await player.play();
-                } else {
-                    await audioPlayer.play();
-                }
-                isPlaying = true;
-                updateTrackInfo(currentKey);
-                playBtn.textContent = "Pause";
-                addPlayingIndicator();
+                sound.play();
             }
         } else {
-            if (player && player.src) {
-                await player.pause();
-            } else {
-                audioPlayer.pause();
+            if (sound) {
+                sound.pause();
+                isPlaying = false;
+                playBtn.textContent = "Play";
+                removePlayingIndicator();
             }
-            isPlaying = false;
-            playBtn.textContent = "Play";
-            removePlayingIndicator();
         }
     } catch (error) {
         console.error("Playback control error:", error);
@@ -305,33 +278,15 @@ skipBtn.addEventListener('click', async () => {
     await pickRandomTrackAndPlay();
 });
 
-audioPlayer.addEventListener('ended', () => {
-    pickRandomTrackAndPlay();
-});
-
-audioPlayer.addEventListener('error', (e) => {
-    console.error("Audio error:", e);
-    currentTrack.textContent = "Error playing audio - skipping to next track";
-    setTimeout(() => pickRandomTrackAndPlay(), 1000);
-});
-
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         window.wasPlaying = isPlaying;
-        if (isPlaying) {
-            if (player && player.src) {
-                player.pause();
-            } else {
-                audioPlayer.pause();
-            }
+        if (sound && isPlaying) {
+            sound.pause();
         }
     } else {
-        if (window.wasPlaying) {
-            if (player && player.src) {
-                player.play().catch(console.error);
-            } else {
-                audioPlayer.play().catch(console.error);
-            }
+        if (window.wasPlaying && sound) {
+            sound.play();
         }
     }
 });
